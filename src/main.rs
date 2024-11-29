@@ -213,14 +213,29 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut db_connection = lecsicon_db::connection(&db_file_path)?;
     let args: Vec<String> = env::args().collect();
     if !db_file_path.exists() && !csv_file_path.exists() {
+        // If neither file is present, there's nothing we can do.
         println!(
             "Ni chanfuwyd y ffeil CSV: {}",
             csv_file_path.to_string_lossy()
         );
         process::exit(2);
-    } else if !db_file_path.exists() && csv_file_path.exists() {
-        println!("Cynhyrchu'r data, arhoswch...");
-        lecsicon_db::save_csv_as_sqlite_db(&csv_file_path, &db_file_path);
+    } else if db_file_path.exists()
+        && !(lecsicon_db::search("archfarchnad", Rc::get_mut(&mut db_connection).unwrap())
+            .is_some()
+            && lecsicon_db::search("meddwl", Rc::get_mut(&mut db_connection).unwrap()).is_some()
+            && lecsicon_db::search("yr", Rc::get_mut(&mut db_connection).unwrap()).is_some())
+    {
+        // If the db exists but hasn't been populated, generate and insert the data.
+        if csv_file_path.exists() {
+            println!("Cynhyrchu'r data, arhoswch...");
+            lecsicon_db::save_csv_as_sqlite_db(&csv_file_path, &db_file_path);
+        } else {
+            println!(
+                "Ni chanfuwyd y ffeil CSV: {}",
+                csv_file_path.to_string_lossy()
+            );
+            process::exit(2);
+        }
     }
     match args.len() {
         1 => {
@@ -246,6 +261,8 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
         }
         _ => {
+            // It would be trivial to enable searching here for a word passed as a command line
+            // argument, rather than always running the CLI.
             println!("Could not process command line args.");
         }
     }
